@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE,
 ```{r, eval=T, echo=T}
 source("R/packages.R")
 
-dat <- read.csv("data/boatClassifications_LAST.csv")%>%
+dat <- read.csv("boatClassifications_LAST.csv")%>%
   mutate(boatclass = ifelse(class == 0, "stationary", "moving")) %>%
   mutate(date1 = as.Date(date, format = "%d/%m/%Y")) %>%
   mutate(month_num = format(date1, "%m"), year = format(date1, "%Y")) %>%
