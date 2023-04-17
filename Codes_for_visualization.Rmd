@@ -1,0 +1,318 @@
+---
+title: "Living and Playing together -  boat detection visualization"
+author: 
+- email: j.vercelloni@aims.gov.au
+  name: Julie Vercelloni
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: bookdown::html_document2
+fontsize: 12pt
+header-includes: 
+  \usepackage{float} \floatplacement{figure}{H} 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = F,
+                      warning = F)
+```
+
+# Exploratory visualizations
+
+```{r, eval=T, echo=T}
+source("R/packages.R")
+
+dat <- read.csv("data/boatClassifications_LAST.csv")%>%
+  mutate(boatclass = ifelse(class == 0, "stationary", "moving")) %>%
+  mutate(date1 = as.Date(date, format = "%d/%m/%Y")) %>%
+  mutate(month_num = format(date1, "%m"), year = format(date1, "%Y")) %>%
+  mutate(Site= ifelse(AOI=="peelIsland","Peel Island (Teerk Roo Ra)",
+                         ifelse(AOI=="southBribie","Bribie Island (Yarun) South",
+                                ifelse(AOI=="tangalooma","Moreton Island (Mulgumpin) Central West","NA")))) %>%
+  mutate(day = wday(date1, label=TRUE)) %>%
+  mutate(wend = ifelse(day %in% c("Sat", "Sun"), "Weekend", "Week"))
+
+# Look at the overall number of images across sites 
+
+tal <- dat %>% group_by(date1, Site) %>%
+  filter(row_number() == 1) %>%
+  group_by(year, Site) %>% tally() %>% arrange(desc(n))
+```
+
+```{r fig1, fig.align = 'center', fig.width=9,fig.height=5, fig.cap="Number of analyzed images by the ML (machine learning) algorithms per area of interest."}
+ggplot(tal, aes(x = year, y = n, group = Site, col = Site)) + geom_point(size = 2.2) + geom_line() +
+  theme_bw() + xlab("") + ylab("Number of analyzed images") +
+  theme(axis.text.x = element_text(size = 11), legend.position="bottom",
+        legend.title = element_text(colour = "black", size = 13, face = "bold"),
+        legend.key = element_blank(), legend.background = element_blank(),
+        legend.text = element_text(colour = "black", size = 11), 
+        panel.grid.minor  = element_blank(), plot.title = element_text(hjust = 0.5,vjust = 2, size = 15, face = "bold"),
+        axis.text.y = element_text(size = 11), axis.title.y = element_text(size = 13), axis.title.x = element_text(size = 13),
+        strip.text = element_text(size = 13, face = "bold"), strip.background = element_rect(fill = "white"))+
+  scale_colour_manual("", values = wesanderson::wes_palette("GrandBudapest1", n = 3)) 
+```
+
+```{r, eval=T, echo=T}
+dat_wend <- dat%>% group_by(date1, Site) %>%
+  filter(row_number() == 1) %>% 
+  group_by(Site, month_num, year, wend) %>% tally()
+```
+
+```{r fig2, fig.align = 'center', fig.width=9,fig.height=5, fig.cap="Number of analyzed images by the ML algorithms splitted into week days and weekend."}
+ggplot(dat_wend, aes(x = year, y= n, fill = wend)) +
+  geom_bar(stat="identity", width=.5, position = "dodge") + facet_wrap(~Site, scales = "free", ncol = 2) +
+  theme_bw() + xlab("") + ylab("Number of analyzed images") +
+  theme(axis.text.x = element_text(size = 11),legend.position="bottom",
+        legend.title = element_text(colour = "black", size = 13, face = "bold"),
+        legend.key = element_blank(), legend.background = element_blank(),
+        legend.text = element_text(colour = "black", size = 11), 
+        panel.grid.minor  = element_blank(), plot.title = element_text(hjust = 0.5, vjust = 2, size = 15, face = "bold"),
+        axis.text.y = element_text(size = 11), axis.title.y=element_text(size = 13), axis.title.x=element_text(size = 13),
+        strip.text = element_text(size = 13, face = "bold"),strip.background = element_rect(fill = "white"))+
+  scale_fill_manual("",values = wesanderson::wes_palette("IsleofDogs1", n = 2)) 
+```
+
+```{r, eval=T, echo=T}
+dat_sum <- dat %>% group_by(date1, Site, boatclass) %>% tally() %>% 
+  rename(n_boat = n) %>%
+  mutate(year = format(date1, "%Y")) %>%
+  group_by(year, Site, boatclass) %>%
+  summarise(mean_boat = mean(n_boat), sd_boat = sd(n_boat), `Number of images` = n()) %>%
+  mutate(SE  = sd_boat / sqrt(`Number of images`))
+```
+
+```{r fig3, fig.align = 'center', fig.width=14,fig.height=8, fig.cap="Averaged Nnumber of detected boats through time. The size of dots corresponds to the number of images analysed by the ML algorithms. Error bars show 95% confidence intervals."}
+ggplot(dat_sum, aes(x=year, y=mean_boat, fill=boatclass, group = boatclass, col = boatclass)) + 
+  geom_errorbar(aes(ymin=mean_boat - 1.96*SE, ymax=mean_boat + 1.96*SE), width=.2, show.legend = F) +
+  geom_point(aes(size = `Number of images`), alpha=.6, shape = 21, col = "black") + facet_wrap(~Site) + geom_line(show.legend = F) + 
+  theme_bw() + xlab("") + ylab("Number of detected boats") +
+  theme(axis.text.x = element_text(size = 11, angle = 45, hjust = 1), legend.position="right",
+        legend.title = element_text(colour = "black", size = 13, face = "bold"),
+        legend.key = element_blank(), legend.background = element_blank(),
+        legend.text = element_text(colour = "black", size = 11), 
+        panel.grid.minor  = element_blank(), plot.title = element_text(hjust = 0.5, vjust = 2, size = 15, face="bold"),
+        axis.text.y = element_text(size = 11), axis.title.y = element_text(size = 13), axis.title.x=element_text(size = 13),
+        strip.text = element_text(size = 13, face = "bold"), strip.background = element_rect(fill = "white"))+
+  scale_fill_manual("Category", values = c("navy", "red"))+
+  scale_colour_manual("", values = c("navy", "red"))
+```
+
+```{r, eval=T, echo=T}
+dat_sum_end <- dat %>% group_by(date1, Site, boatclass,wend) %>% tally() %>% 
+  rename(n_boat = n) %>%
+  mutate(year = format(date1, "%Y")) %>%
+  group_by(year, Site, boatclass, wend) %>%
+  summarise(mean_boat = mean(n_boat), sd_boat = sd(n_boat), `Number of images` = n()) %>%
+  mutate(SE  = sd_boat / sqrt(`Number of images`))
+```
+
+```{r fig4, fig.align = 'center', fig.width=10,fig.height=6, fig.cap="Averaged number of detected boats during weekdays and weekend. The size of dots corresponds to the number of images analysed by the ML algorithms. The error bars show 95% confidence intervals."}
+ggplot(dat_sum_end, aes(x=year, y=mean_boat, fill=boatclass, group = boatclass, col = boatclass)) + 
+  geom_errorbar(aes(ymin=mean_boat - 1.96*SE, ymax=mean_boat + 1.96*SE), width=.2, show.legend = F) +
+  geom_point(aes(size = `Number of images`), alpha=.6, shape = 21, col = "black") + 
+  facet_wrap(~Site + wend, ncol = 2) + geom_line(show.legend = F) + 
+  theme_bw() + xlab("") + ylab("Number of detected boats") +
+  theme(axis.text.x = element_text(size = 11, angle = 45, hjust = 1), legend.position="right",
+        legend.title = element_text(colour = "black", size = 13, face = "bold"),
+        legend.key = element_blank(), legend.background = element_blank(),
+        legend.text = element_text(colour = "black", size = 11), 
+        panel.grid.minor  = element_blank(), 
+        plot.title = element_text(hjust = 0.5, vjust = 2, size = 15, face = "bold"),
+        axis.text.y = element_text(size = 11), axis.title.y = element_text(size = 13),
+        axis.title.x = element_text(size = 13),
+        strip.text = element_text(size = 13, face = "bold"), strip.background = element_rect(fill = "white"))+
+  scale_fill_manual("Category", values = c("navy", "red"))+
+  scale_colour_manual("", values = c("navy", "red"))
+```
+
+```{r, eval=T, echo=T}
+dat_grouped <- dat  %>%
+  mutate(month_name = lubridate::month(as.numeric(month_num), label = TRUE, abbr = FALSE)) %>%
+  mutate(group_ID = paste(month_name,year, sep = " "))
+
+tal1 <- dat_grouped %>% group_by(group_ID, year, month_name, boatclass, Site) %>% tally() %>% arrange(desc(n))
+
+site_tal <- unique(tal1$Site)
+p <- list()
+for ( i in 1:length(site_tal)){
+  p[[i]] <- ggplot(tal1 %>% filter(Site == site_tal[i]), aes(x = month_name, y= n, fill = boatclass)) +
+    geom_bar(stat="identity", width=.5, position = "dodge", alpha=.6) + facet_wrap(~year, scales = "free", ncol = 2) +
+    theme_bw() + xlab("") + ylab("Number of detected boats") +
+    theme(axis.text.x = element_text(size=11, angle = 45, hjust = 1), legend.position="bottom",
+          legend.title = element_text(colour = "black", size = 13, face = "bold"),
+          legend.key = element_blank(),legend.background = element_blank(),
+          legend.text = element_text(colour = "black", size = 11), 
+          panel.grid.minor  = element_blank(),plot.title = element_text(hjust = 0.5,vjust = 2,size = 15, face="bold"),
+          axis.text.y = element_text(size=11),axis.title.y = element_text(size = 13),axis.title.x=element_text(size = 13),
+          strip.text = element_text(size=13, face = "bold"),strip.background = element_rect(fill = "white"))+
+    scale_fill_manual("Category",values = c("navy", "red")) + ggtitle(site_tal[i])
+}
+```
+
+```{r fig5, fig.align = 'center', fig.width=12,fig.height=12, fig.cap="Number of detected boats through time per area of interest."}
+p[[1]]
+p[[2]]
+p[[3]]
+```
+
+# Spatial mapping
+
+The following codes produced maps of detected boats per area of interest. Maps display the geographic positions of boat detected by the machine learning algorithms within a month. Maps are saved in the main working directory as png and gif formats. 
+
+```{r, eval=T, echo=T}
+
+#Filter group_ID with less than 50 boats for spatial visualization 
+
+tal <- dat_grouped %>% group_by(group_ID, Site) %>% tally() %>% arrange(n) %>% filter(n>50)
+dat_grouped <- dat_grouped %>% filter(group_ID %in% tal$group_ID)
+
+# Loop over the period (month per year) to create one map per period
+
+tag.map.title <- tags$style(HTML("
+  .leaflet-control.map-title { 
+    transform: translate(-50%,20%);
+    position: fixed !important;
+    left: 50%;
+    text-align: left;
+    font-size: 20px;
+    color: black;
+    font-weight: bold
+  }
+"))
+
+pal <- colorFactor(c("navy", "red"), domain = c("stationary","moving"))
+
+# Site 1 
+
+dat_site <- dat_grouped %>% filter(Site == site_tal[1]) 
+
+# Transform in spatial dataframe 
+dat_sf <- st_as_sf(dat_site, coords = c("longitude", "latitude"), crs = 4326) 
+
+yy <- unique(dat_sf$group_ID)
+
+for (i in 1:length(yy)){
+  
+  title <- tags$div(
+    tag.map.title, HTML(yy[i])
+  ) 
+  
+  m <-  leaflet(dat_sf %>% filter(group_ID == yy[i] )) %>% 
+    setView(lng = mean(dat_site$longitude), lat = mean(dat_site$latitude), zoom = 11) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+      addCircleMarkers(
+        radius = ~ifelse(boatclass == "moving", 3, 2),
+        color = ~pal(boatclass),
+        stroke = FALSE, fillOpacity = 0.8
+      ) %>%
+    addLegend(pal = pal, values = c("stationary","moving"),
+              title = "Boat detection") %>%
+    addControl(title, position = "topleft", className="map-title")
+  
+    
+  ## This is the png creation part
+  saveWidget(m, 'temp.html', selfcontained = FALSE)
+  webshot('temp.html', file=sprintf('Site1%02d.png', i),
+          cliprect = 'viewport')
+}
+
+# Get the GIF 
+
+png.files <- sprintf("Site1%02d.png", 1:length(yy)) 
+GIF.convert <- function(x, output = paste0(site_tal[1],".gif"))
+{
+  image_read(x) %>%
+    image_animate(fps = 1) %>%
+    image_write(output)
+}
+
+GIF.convert(png.files)
+
+# Site 2
+
+dat_site <- dat_grouped %>% filter(Site == site_tal[2]) %>%
+  filter(! class == 1) # moving boat detected only in May 2018
+
+# Transform in spatial dataframe 
+dat_sf <- st_as_sf(dat_site, coords = c("longitude", "latitude"), crs = 4326) 
+
+yy <- unique(dat_sf$group_ID)
+
+for (i in 1:length(yy)){
+  
+  title <- tags$div(
+    tag.map.title, HTML(yy[i])
+  ) 
+  
+  m <-  leaflet(dat_sf %>% filter(group_ID == yy[i])) %>% 
+    setView(lng = mean(dat_site$longitude), lat = mean(dat_site$latitude), zoom = 12) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircleMarkers(
+      radius = ~2,
+      color = ~ "red",
+      stroke = FALSE, fillOpacity = 0.8
+    ) %>%
+    addLegend(pal = pal, values = c("stationary","moving"),
+              title = "Boat detection") %>%
+    addControl(title, position = "topleft", className="map-title")
+  
+  ## This is the png creation part
+  saveWidget(m, 'temp.html', selfcontained = FALSE)
+  webshot('temp.html', file= sprintf('Site2%02d.png', i),
+          cliprect = 'viewport')
+}
+
+# Get the GIF 
+png.files <- sprintf("Site2%02d.png", 1:length(yy)) 
+GIF.convert <- function(x, output = paste0(site_tal[2],".gif"))
+{
+  image_read(x) %>%
+    image_animate(fps = 1) %>%
+    image_write(output)
+}
+
+GIF.convert(png.files)
+
+# Site 3 
+
+dat_site <- dat_grouped %>% filter(Site == site_tal[3]) 
+
+# Transform in spatial dataframe 
+dat_sf <- st_as_sf(dat_site, coords = c("longitude", "latitude"), crs = 4326) 
+
+yy <- unique(dat_sf$group_ID)
+
+for (i in 1:length(yy)){
+  
+  title <- tags$div(
+    tag.map.title, HTML(yy[i])
+  ) 
+  
+  m <-  leaflet(dat_sf %>% filter(group_ID == yy[i] )) %>% 
+    setView(lng = mean(dat_site$longitude), lat = mean(dat_site$latitude), zoom = 11) %>%
+    addProviderTiles(providers$CartoDB.Positron) %>%
+    addCircleMarkers(
+      radius = ~ifelse(boatclass == "moving", 3, 2),
+      color = ~pal(boatclass),
+      stroke = FALSE, fillOpacity = 0.8
+    ) %>%
+    addLegend(pal = pal, values = c("stationary","moving"),
+              title = "Boat detection") %>%
+    addControl(title, position = "topleft", className="map-title")
+  
+  ## This is the png creation part
+  saveWidget(m, 'temp.html', selfcontained = FALSE)
+  webshot('temp.html', file=sprintf('Site3%02d.png', i),
+          cliprect = 'viewport')
+}
+
+# Get the GIF 
+png.files <- sprintf("Site3%02d.png", 1:length(yy)) 
+GIF.convert <- function(x, output = paste0(site_tal[3],".gif"))
+{
+  image_read(x) %>%
+    image_animate(fps = 1) %>%
+    image_write(output)
+}
+
+GIF.convert(png.files)
+```
