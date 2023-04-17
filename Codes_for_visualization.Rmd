@@ -1,7 +1,7 @@
 ---
 title: "Living and Playing together -  boat detection visualization"
 author: 
-- email: j.vercelloni@aims.gov.au
+- email: j.vercelloni@qut.edu.au
   name: Julie Vercelloni
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: bookdown::html_document2
@@ -46,7 +46,8 @@ ggplot(tal, aes(x = year, y = n, group = Site, col = Site)) + geom_point(size = 
         legend.key = element_blank(), legend.background = element_blank(),
         legend.text = element_text(colour = "black", size = 11), 
         panel.grid.minor  = element_blank(), plot.title = element_text(hjust = 0.5,vjust = 2, size = 15, face = "bold"),
-        axis.text.y = element_text(size = 11), axis.title.y = element_text(size = 13), axis.title.x = element_text(size = 13),
+        axis.text.y = element_text(size = 11), axis.title.y = element_text(size = 13), 
+        axis.title.x = element_text(size = 13),
         strip.text = element_text(size = 13, face = "bold"), strip.background = element_rect(fill = "white"))+
   scale_colour_manual("", values = wesanderson::wes_palette("GrandBudapest1", n = 3)) 
 ```
